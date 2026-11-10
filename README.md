@@ -20,13 +20,13 @@ cd bml-connect-faker
 
 Then start it with the runtime you have. The three implementations behave the same and share one database file, so you can switch between them.
 
-| You have | Run |
-| --- | --- |
-| PHP 8.2+ | `php -S 127.0.0.1:8787 src/php/server.php` |
-| Node 22.13+ | `node src/node/server.mjs` |
-| Python 3.8+ | `python3 src/python/server.py` |
+| You have | Run | Notes |
+| --- | --- | --- |
+| PHP 8.2+ | `php -S 127.0.0.1:8787 src/php/server.php` | [src/php](src/php/README.md) |
+| Node 22.13+ | `node src/node/server.mjs` | [src/node](src/node/README.md) |
+| Python 3.8+ | `python3 src/python/server.py` | [src/python](src/python/README.md) |
 
-Open <http://127.0.0.1:8787> for the dashboard. The SQLite database is created on the first request.
+Open <http://127.0.0.1:8787> for the dashboard. The SQLite database is created by itself.
 
 Point your app's BML base URL at `http://127.0.0.1:8787` instead of `https://api.uat.merchants.bankofmaldives.com.mv`, and send `test-api-key` as the `Authorization` header.
 
@@ -37,17 +37,40 @@ cd bml-connect-faker
 herd link bml-connect-faker     # http://bml-connect-faker.test
 ```
 
-Herd and Valet serve `public/index.php` by themselves. HTTPS webhooks to your other `*.test` sites work out of the box, because the faker trusts Herd's local certificate authority.
+This runs the PHP implementation: Herd and Valet serve `public/index.php`, which loads it. HTTPS webhooks to your other `*.test` sites work out of the box, because the faker trusts Herd's local certificate authority.
 
 ### With Docker
 
+If you have none of the three runtimes, run any one of these from the project folder. They all serve <http://127.0.0.1:8787>.
+
 ```sh
-docker run --rm -p 8787:8787 -v "$PWD":/app -w /app php:8.3-cli php -S 0.0.0.0:8787 src/php/server.php
+# PHP
+docker run --rm --init -p 8787:8787 -v "$PWD":/app -w /app php:8.3-cli php -S 0.0.0.0:8787 src/php/server.php
+
+# Node
+docker run --rm --init -p 8787:8787 -v "$PWD":/app -w /app -e BML_FAKER_HOST=0.0.0.0 node:24-alpine node src/node/server.mjs
+
+# Python
+docker run --rm --init -p 8787:8787 -v "$PWD":/app -w /app -e BML_FAKER_HOST=0.0.0.0 python:3.13-alpine python src/python/server.py
 ```
+
+Pass settings with `-e`, for example `-e BML_FAKER_API_KEY=my-local-key`. Inside the container, `localhost` is the container itself, so for webhooks to an app on your machine use `host.docker.internal` in place of `localhost` (on Linux, also add `--add-host=host.docker.internal:host-gateway`).
 
 ## Configuration
 
-Every setting has a default and can be changed with an environment variable. Under Herd or Valet, where environment variables are awkward, create a `config.local.php` (gitignored) in the project root that returns the keys you want to change:
+Every setting has a default and can be changed with an environment variable, in all three implementations.
+
+| Key | Environment variable | Default | What it does |
+| --- | --- | --- | --- |
+| `api_key` | `BML_FAKER_API_KEY` | `test-api-key` | Expected in the `Authorization` header. Also signs webhooks. |
+| `webhook_url` | `BML_FAKER_WEBHOOK_URL` | none | Stands in for the webhook URL set in the BML merchant dashboard. |
+| `database` | `BML_FAKER_DATABASE` | `storage/bml-connect-faker.sqlite` | The SQLite file. |
+| `ca_file` | `BML_FAKER_CA_FILE` | Herd's CA, if present | A certificate authority for HTTPS webhook targets, such as mkcert's. |
+| `transaction_lifetime_days` | `BML_FAKER_TRANSACTION_LIFETIME_DAYS` | `7` | How long a transaction can be paid, as BML's default. |
+
+The Node and Python servers listen on `127.0.0.1:8787`; change that with `BML_FAKER_HOST` and `BML_FAKER_PORT`. For PHP, the address is in the `php -S` command.
+
+Under Herd or Valet, where environment variables are awkward, the PHP implementation also reads a `config.local.php` (gitignored) in the project root. It returns the keys you want to change:
 
 ```php
 <?php
@@ -57,16 +80,6 @@ return [
     'webhook_url' => 'https://my-app.test/webhooks/bml',
 ];
 ```
-
-| Key | Environment variable | Default | What it does |
-| --- | --- | --- | --- |
-| `api_key` | `BML_FAKER_API_KEY` | `test-api-key` | Expected in the `Authorization` header. Also signs webhooks. |
-| `webhook_url` | `BML_FAKER_WEBHOOK_URL` | none | Stands in for the webhook URL set in the BML merchant dashboard. |
-| `database` | `BML_FAKER_DATABASE` | `storage/bml-connect-faker.sqlite` | The SQLite file. |
-| `ca_file` | `BML_FAKER_CA_FILE` | Herd's CA, if present | An extra certificate authority for HTTPS webhook targets, such as mkcert's. |
-| `transaction_lifetime_days` | `BML_FAKER_TRANSACTION_LIFETIME_DAYS` | `7` | How long a transaction can be paid, as BML's default. |
-
-The Node and Python servers read the environment variables only, not `config.local.php`. They listen on `127.0.0.1:8787`; change that with `BML_FAKER_HOST` and `BML_FAKER_PORT`.
 
 ## How a payment flows
 
@@ -90,7 +103,7 @@ The full endpoint reference is in [docs/api.md](docs/api.md), and webhooks are c
 | `4000 0000 0000 0002` Visa | Declined | — |
 | `4000 0000 0000 0069` Visa | Declined (expired card) | — |
 
-A card is saved only when the payment goes through and the transaction asked for `tokenize` with a customer. A card that declines on the hosted page saves nothing.
+The cards are defined in [shared/cards.json](shared/cards.json). A card is saved only when the payment goes through and the transaction asked for `tokenize` with a customer. A card that declines on the hosted page saves nothing.
 
 The dashboard adds two switches on each saved card: **Fail next charge**, for one failed renewal, and **Expire card**, which declines every charge until the card is replaced.
 

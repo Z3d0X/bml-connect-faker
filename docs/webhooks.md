@@ -76,6 +76,20 @@ if (received.length !== expected.length || !timingSafeEqual(Buffer.from(received
 }
 ```
 
+Python:
+
+```python
+import hashlib
+import hmac
+
+expected = hashlib.sha256(
+    (request.headers['X-Signature-Nonce'] + request.headers['X-Signature-Timestamp'] + api_key).encode()
+).hexdigest()
+
+if not hmac.compare_digest(expected, request.headers.get('X-Signature', '').lower()):
+    abort(401)
+```
+
 ## HTTPS targets
 
 Webhooks to `https://` URLs use the system's certificate authorities, plus `ca_file`. By default `ca_file` is Herd's local CA, so `https://*.test` sites served by Herd work. For mkcert, set `BML_FAKER_CA_FILE` to `$(mkcert -CAROOT)/rootCA.pem`.
