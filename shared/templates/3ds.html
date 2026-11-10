@@ -1,0 +1,11 @@
+<div class="card narrow">
+    <h1>3D Secure check</h1>
+    <p class="muted">The bank asks the cardholder to confirm this payment.</p>
+    <form method="post">
+        <input type="hidden" name="card" value="{{card}}">
+        <div class="actions">
+            <button class="primary" name="action" value="3ds-approve">Approve</button>
+            <button name="action" value="3ds-reject">Reject</button>
+        </div>
+    </form>
+</div>

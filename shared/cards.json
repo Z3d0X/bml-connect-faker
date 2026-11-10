@@ -1,0 +1,8 @@
+[
+    {"number": "4111111111111111", "brand": "VISA", "label": "Pays", "first": "pay", "later": "pay"},
+    {"number": "5555555555554444", "brand": "MASTERCARD", "label": "Pays", "first": "pay", "later": "pay"},
+    {"number": "4000000000000341", "brand": "VISA", "label": "Pays now, every later charge declines", "first": "pay", "later": "decline"},
+    {"number": "4000000000003220", "brand": "VISA", "label": "Asks for 3DS on this page, then pays", "first": "3ds", "later": "pay"},
+    {"number": "4000000000000002", "brand": "VISA", "label": "Declined", "first": "decline", "later": "decline"},
+    {"number": "4000000000000069", "brand": "VISA", "label": "Expired card", "first": "decline", "later": "decline", "expired": true}
+]

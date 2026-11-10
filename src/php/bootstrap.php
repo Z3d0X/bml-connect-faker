@@ -2,20 +2,13 @@
 
 declare(strict_types=1);
 
-const ROOT = __DIR__.'/..';
+const ROOT = __DIR__.'/../..';
 
 /**
- * Test cards on the hosted page. `first` is what paying on the hosted page does,
- * `later` what a charge on the saved card does.
+ * Test cards on the hosted page, by card number. shared/README.md explains the fields.
+ * PHP turns the numeric card keys into integers.
  */
-const TEST_CARDS = [
-    '4111111111111111' => ['brand' => 'VISA', 'label' => 'Pays', 'first' => 'pay', 'later' => 'pay'],
-    '5555555555554444' => ['brand' => 'MASTERCARD', 'label' => 'Pays', 'first' => 'pay', 'later' => 'pay'],
-    '4000000000000341' => ['brand' => 'VISA', 'label' => 'Pays now, every later charge declines', 'first' => 'pay', 'later' => 'decline'],
-    '4000000000003220' => ['brand' => 'VISA', 'label' => 'Asks for 3DS on this page, then pays', 'first' => '3ds', 'later' => 'pay'],
-    '4000000000000002' => ['brand' => 'VISA', 'label' => 'Declined', 'first' => 'decline', 'later' => 'decline'],
-    '4000000000000069' => ['brand' => 'VISA', 'label' => 'Expired card', 'first' => 'decline', 'later' => 'decline'],
-];
+define('TEST_CARDS', array_column(json_decode(file_get_contents(ROOT.'/shared/cards.json'), true), null, 'number'));
 
 const PENDING_STATES = ['INITIATED', 'QR_CODE_GENERATED'];
 
@@ -25,7 +18,7 @@ function config(string $key): mixed
 
     if ($config === null) {
         $local = ROOT.'/config.local.php';
-        $config = array_replace(require ROOT.'/config.php', is_file($local) ? require $local : []);
+        $config = array_replace(require __DIR__.'/config.php', is_file($local) ? require $local : []);
     }
 
     return $config[$key] ?? null;
@@ -49,7 +42,7 @@ function db(): PDO
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
-    $pdo->exec(file_get_contents(ROOT.'/src/schema.sql'));
+    $pdo->exec(file_get_contents(ROOT.'/shared/schema.sql'));
 
     return $pdo;
 }
@@ -124,6 +117,18 @@ function redirect(string $url): never
 function e(mixed $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES);
+}
+
+/**
+ * Fills a template from shared/templates: {{name}} is escaped, {{{name}}} is inserted as it is.
+ */
+function render(string $template, array $values = []): string
+{
+    return preg_replace_callback(
+        '/\{\{(\{?)(\w+)\}?\}\}/',
+        fn (array $match): string => $match[1] === '' ? e($values[$match[2]] ?? '') : (string) ($values[$match[2]] ?? ''),
+        file_get_contents(ROOT.'/shared/templates/'.$template.'.html'),
+    );
 }
 
 function padded_card_number(string $number): string

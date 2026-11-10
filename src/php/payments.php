@@ -113,7 +113,7 @@ function pay_on_hosted_page(array $transaction, string $cardNumber): array
     $card = [
         'padded_card_number' => padded_card_number($cardNumber),
         'exp_month' => (int) gmdate('n'),
-        'exp_year' => (int) gmdate('Y') + ($cardNumber === '4000000000000069' ? -1 : 3),
+        'exp_year' => (int) gmdate('Y') + ((TEST_CARDS[$cardNumber]['expired'] ?? false) ? -1 : 3),
     ];
 
     $token = $outcome === 'CONFIRMED' && $transaction['tokenize'] && $transaction['customer_id'] !== null

@@ -6,7 +6,8 @@ A local stand-in for the [Bank of Maldives Connect](https://bankofmaldives.stopl
 - A hosted payment page with test cards that pay, decline, expire, or ask for 3D Secure.
 - Signed webhooks posted back to your app, with BML's headers and signature.
 - A dashboard to inspect everything and to make a saved card's next charge fail, expire a card, or resend a webhook.
-- Plain PHP 8.2+ and SQLite. No Composer, no build step, no services to run.
+- Runs on whichever of PHP, Node or Python you already have. No packages to install, no build step, no services to run.
+- For development and testing only. It has no real security and must not be exposed to the internet or used in production.
 
 > Not affiliated with or endorsed by Bank of Maldives. Behaviour follows BML's public documentation; where the documentation is silent, the faker makes a choice. Those choices are listed in [What the faker guesses](#what-the-faker-guesses). Always confirm against BML's UAT before going live.
 
@@ -15,8 +16,15 @@ A local stand-in for the [Bank of Maldives Connect](https://bankofmaldives.stopl
 ```sh
 git clone https://github.com/Z3d0X/bml-connect-faker.git
 cd bml-connect-faker
-php -S 127.0.0.1:8787 public/index.php
 ```
+
+Then start it with the runtime you have. The three implementations behave the same and share one database file, so you can switch between them.
+
+| You have | Run |
+| --- | --- |
+| PHP 8.2+ | `php -S 127.0.0.1:8787 src/php/server.php` |
+| Node 22.13+ | `node src/node/server.mjs` |
+| Python 3.8+ | `python3 src/python/server.py` |
 
 Open <http://127.0.0.1:8787> for the dashboard. The SQLite database is created on the first request.
 
@@ -34,12 +42,12 @@ Herd and Valet serve `public/index.php` by themselves. HTTPS webhooks to your ot
 ### With Docker
 
 ```sh
-docker run --rm -p 8787:8787 -v "$PWD":/app -w /app php:8.3-cli php -S 0.0.0.0:8787 public/index.php
+docker run --rm -p 8787:8787 -v "$PWD":/app -w /app php:8.3-cli php -S 0.0.0.0:8787 src/php/server.php
 ```
 
 ## Configuration
 
-Every setting has a default and can be changed with an environment variable. Under Herd or Valet, where environment variables are awkward, create a `config.local.php` (gitignored) that returns the keys you want to change:
+Every setting has a default and can be changed with an environment variable. Under Herd or Valet, where environment variables are awkward, create a `config.local.php` (gitignored) in the project root that returns the keys you want to change:
 
 ```php
 <?php
@@ -57,6 +65,8 @@ return [
 | `database` | `BML_FAKER_DATABASE` | `storage/bml-connect-faker.sqlite` | The SQLite file. |
 | `ca_file` | `BML_FAKER_CA_FILE` | Herd's CA, if present | An extra certificate authority for HTTPS webhook targets, such as mkcert's. |
 | `transaction_lifetime_days` | `BML_FAKER_TRANSACTION_LIFETIME_DAYS` | `7` | How long a transaction can be paid, as BML's default. |
+
+The Node and Python servers read the environment variables only, not `config.local.php`. They listen on `127.0.0.1:8787`; change that with `BML_FAKER_HOST` and `BML_FAKER_PORT`.
 
 ## How a payment flows
 
@@ -102,14 +112,33 @@ Spotted a difference from the real API? Please open an issue with what BML retur
 ## Project layout
 
 ```
-public/index.php    routes
-src/api.php         the BML Connect endpoints
-src/payments.php    transactions, saved cards, charging
-src/webhooks.php    signed webhook delivery
-src/pages.php       hosted payment page and dashboard
-src/schema.sql      the SQLite schema, applied on every connection
-config.php          defaults and environment variables
+src/php/              the PHP implementation
+src/node/             the Node implementation
+src/python/           the Python implementation
+shared/               what all three read: schema, test cards, HTML
+tests/conformance.py  the checks every implementation must pass
+public/index.php      one line that loads src/php/server.php, for Herd and Valet
 ```
+
+Each implementation has the same seven files with the same functions in each, and a README of its own:
+
+| File | What it holds |
+| --- | --- |
+| `server` | routes; the file you run |
+| `config` | defaults and environment variables |
+| `bootstrap` | database and helpers |
+| `api` | the BML Connect endpoints |
+| `payments` | transactions, saved cards, charging |
+| `webhooks` | signed webhook delivery |
+| `pages` | hosted payment page and dashboard |
+
+A change in behaviour belongs in all three implementations. What doesn't differ by language is in `shared/` and is changed once; [shared/README.md](shared/README.md) describes the files, including how to add a test card. To check that they still agree, run:
+
+```sh
+python3 tests/conformance.py
+```
+
+It starts each implementation whose runtime is installed on a free port with a throwaway database, then drives the API, the hosted page and the dashboard and checks the webhooks it receives.
 
 ## License
 

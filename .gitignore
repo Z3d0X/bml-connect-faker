@@ -1,3 +1,4 @@
 /storage/*.sqlite
 /config.local.php
 .DS_Store
+__pycache__/

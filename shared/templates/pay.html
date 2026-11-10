@@ -1,0 +1,14 @@
+<div class="card narrow">
+    <div class="notice">Test payment page from BML Connect Faker. No real card is charged.</div>
+    <h1>Test payment</h1>
+    <div class="muted">Transaction <code>{{id}}</code></div>
+    <div class="amount">{{currency}} {{amount}}</div>
+    <p class="muted" {{saving_hidden}}>This card will be saved for later payments ({{payment_type}}).</p>
+    <form method="post">
+        {{{options}}}
+        <div class="actions">
+            <button class="primary" name="action" value="pay">Pay</button>
+            <button name="action" value="cancel">Cancel</button>
+        </div>
+    </form>
+</div>
